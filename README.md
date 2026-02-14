@@ -5,7 +5,7 @@ Official Python SDK for [ToggleTown](https://toggletown.com) feature flags.
 ## Installation
 
 ```bash
-pip install toggletown
+pip install git+https://github.com/toggletown/sdk-python.git
 ```
 
 ## Quick Start
