@@ -43,6 +43,19 @@ with ToggleTownClient("tt_live_xxx") as client:
     enabled = client.get_boolean_flag("feature", False, {"user_id": "123"})
 ```
 
+## Staleness Detection
+
+```python
+client = ToggleTownClient(
+    "tt_live_xxx",
+    on_stale=lambda last, age: print(f"Flags stale! age: {age}s"),
+)
+
+client.is_stale()            # bool
+client.get_last_updated_at() # datetime or None
+client.get_status()          # {"status": "fresh"|"stale", "last_updated_at": ..., "age_seconds": ...}
+```
+
 ## Documentation
 
 Full documentation with configuration, targeting rules, framework integration (Flask, Django), and best practices:

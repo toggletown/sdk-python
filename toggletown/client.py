@@ -6,7 +6,8 @@ Main client class for fetching and evaluating feature flags.
 
 import threading
 import time
-from typing import Any, Callable, Dict, Optional
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import requests
 
@@ -14,6 +15,7 @@ from .evaluator import evaluate_flag
 
 DEFAULT_API_URL = "https://api.toggletown.com"
 DEFAULT_POLLING_INTERVAL = 30  # seconds
+DEFAULT_MAX_STALE_AGE = 300  # 5 minutes in seconds
 
 
 class ToggleTownClient:
@@ -37,6 +39,8 @@ class ToggleTownClient:
         api_url: str = DEFAULT_API_URL,
         polling_interval: int = DEFAULT_POLLING_INTERVAL,
         on_error: Optional[Callable[[Exception], None]] = None,
+        on_stale: Optional[Callable[[datetime, float], None]] = None,
+        max_stale_age: float = DEFAULT_MAX_STALE_AGE,
     ):
         """
         Initialize the ToggleTown client.
@@ -46,17 +50,23 @@ class ToggleTownClient:
             api_url: API base URL (optional, defaults to production)
             polling_interval: How often to refresh flags in seconds (default: 30)
             on_error: Callback for fetch errors during polling
+            on_stale: Callback fired once when flags become stale (receives last_updated_at, age_seconds)
+            max_stale_age: Maximum age in seconds before flags are considered stale (default: 300)
         """
         self.api_key = api_key
         self.api_url = api_url.rstrip("/")
         self.polling_interval = polling_interval
         self.on_error = on_error
+        self.on_stale = on_stale
+        self.max_stale_age = max_stale_age
 
         self._flags: Dict[str, Dict[str, Any]] = {}
         self._initialized = False
         self._poll_thread: Optional[threading.Thread] = None
         self._stop_polling = threading.Event()
         self._lock = threading.Lock()
+        self._last_updated_at: Optional[datetime] = None
+        self._stale_fired = False
 
     def initialize(self) -> None:
         """
@@ -96,6 +106,8 @@ class ToggleTownClient:
         data = response.json()
         with self._lock:
             self._flags = data.get("flags", {})
+            self._last_updated_at = datetime.now(timezone.utc)
+            self._stale_fired = False
 
     def _fetch_flags(self) -> None:
         """Fetch flags from API (for polling). Does not raise."""
@@ -110,9 +122,12 @@ class ToggleTownClient:
             data = response.json()
             with self._lock:
                 self._flags = data.get("flags", {})
+                self._last_updated_at = datetime.now(timezone.utc)
+                self._stale_fired = False
         except Exception as e:
             if self.on_error:
                 self.on_error(e)
+            self._check_staleness()
             # Continue with cached flags
 
     def _start_polling(self) -> None:
@@ -131,6 +146,47 @@ class ToggleTownClient:
         self._stop_polling.set()
         if self._poll_thread and self._poll_thread.is_alive():
             self._poll_thread.join(timeout=1)
+
+    def _check_staleness(self) -> None:
+        """Check if flags are stale and fire callback if needed."""
+        with self._lock:
+            if self._last_updated_at is None:
+                return
+            age = (datetime.now(timezone.utc) - self._last_updated_at).total_seconds()
+            if age > self.max_stale_age and not self._stale_fired:
+                self._stale_fired = True
+                if self.on_stale:
+                    self.on_stale(self._last_updated_at, age)
+
+    def get_last_updated_at(self) -> Optional[datetime]:
+        """Get the timestamp of the last successful flag fetch."""
+        with self._lock:
+            return self._last_updated_at
+
+    def is_stale(self) -> bool:
+        """Check if cached flags are stale (age exceeds max_stale_age)."""
+        with self._lock:
+            if self._last_updated_at is None:
+                return False
+            age = (datetime.now(timezone.utc) - self._last_updated_at).total_seconds()
+            return age > self.max_stale_age
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get connection status including staleness info.
+
+        Returns:
+            Dict with 'status' ('fresh' or 'stale'), 'last_updated_at' (datetime or None),
+            and 'age_seconds' (float).
+        """
+        with self._lock:
+            if self._last_updated_at is None:
+                return {"status": "fresh", "last_updated_at": None, "age_seconds": 0.0}
+            age = (datetime.now(timezone.utc) - self._last_updated_at).total_seconds()
+            return {
+                "status": "stale" if age > self.max_stale_age else "fresh",
+                "last_updated_at": self._last_updated_at,
+                "age_seconds": age,
+            }
 
     def _get_flag_config(self, key: str) -> Optional[Dict[str, Any]]:
         """Get flag configuration by key."""
