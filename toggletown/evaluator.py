@@ -83,7 +83,7 @@ def get_off_value(flag_type: str) -> Any:
     elif flag_type == "NUMBER":
         return 0
     elif flag_type == "JSON":
-        return None
+        return {}
     return None
 
 
@@ -109,7 +109,7 @@ def evaluate_flag(flag_config: Dict[str, Any], context: Dict[str, Any]) -> Any:
     flag_key = flag_config.get("key", "")
 
     if not enabled:
-        return default_value
+        return get_off_value(flag_type)
 
     # Get user_id for rollout (support both user_id and userId)
     user_id = context.get("user_id") or context.get("userId") or ""
@@ -127,12 +127,19 @@ def evaluate_flag(flag_config: Dict[str, Any], context: Dict[str, Any]) -> Any:
             if not user_id or not is_in_rollout(user_id, flag_key, rule_percentage):
                 continue
 
-        return rule_value if rule_value is not None else default_value
+        if rule_value is not None:
+            return rule_value
+        # Matched rule with no explicit value: booleans turn on, others use the configured value
+        return True if flag_type == "BOOLEAN" else default_value
 
     # No rules matched - check global percentage rollout
     if rollout_percentage > 0 and user_id:
         if is_in_rollout(user_id, flag_key, rollout_percentage):
             return default_value
+        return get_off_value(flag_type)
+
+    # Enabled but rolled out to nobody: off, matching the dashboard preview
+    if rollout_percentage <= 0:
         return get_off_value(flag_type)
 
     return default_value

@@ -65,9 +65,9 @@ class TestMatchesRule:
 
 class TestEvaluateFlag:
     def test_disabled_flag(self):
-        """Disabled flag returns defaultValue."""
+        """Disabled flag returns the off value, not defaultValue."""
         config = {"type": "BOOLEAN", "enabled": False, "defaultValue": True}
-        assert evaluate_flag(config, {}) is True
+        assert evaluate_flag(config, {}) is False
 
     def test_enabled_boolean(self):
         """Enabled boolean flag with 100% rollout returns default."""
@@ -113,3 +113,13 @@ class TestEvaluateFlag:
             "rules": [],
         }
         assert evaluate_flag(config, {"user_id": "123"}) == 42
+
+
+class TestOffSemantics:
+    def test_enabled_zero_rollout_is_off(self):
+        config = {"type": "BOOLEAN", "enabled": True, "defaultValue": True, "rolloutPercentage": 0, "rules": []}
+        assert evaluate_flag(config, {"user_id": "u1"}) is False
+
+    def test_disabled_non_boolean_returns_type_off_value(self):
+        assert evaluate_flag({"type": "STRING", "enabled": False, "defaultValue": "x"}, {}) == ""
+        assert evaluate_flag({"type": "NUMBER", "enabled": False, "defaultValue": 5}, {}) == 0
