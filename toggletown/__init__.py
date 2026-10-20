@@ -6,7 +6,7 @@ A Python SDK for evaluating feature flags from ToggleTown.
 Example:
     from toggletown import ToggleTownClient
 
-    client = ToggleTownClient("tt_live_your_api_key")
+    client = ToggleTownClient("your_environment_api_key")
     client.initialize()
 
     enabled = client.get_boolean_flag("new-feature", False, {"user_id": "user-123"})

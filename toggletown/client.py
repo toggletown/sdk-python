@@ -23,7 +23,7 @@ class ToggleTownClient:
     ToggleTown feature flag client.
 
     Example:
-        client = ToggleTownClient("tt_live_your_api_key")
+        client = ToggleTownClient("your_environment_api_key")
         client.initialize()
 
         # Evaluate flags
@@ -46,7 +46,7 @@ class ToggleTownClient:
         Initialize the ToggleTown client.
 
         Args:
-            api_key: Your environment API key (starts with tt_live_ or tt_test_)
+            api_key: Your environment API key (starts with dev_, stg_ or prod_)
             api_url: API base URL (optional, defaults to production)
             polling_interval: How often to refresh flags in seconds (default: 30)
             on_error: Callback for fetch errors during polling

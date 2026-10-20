@@ -13,7 +13,7 @@ pip install git+https://github.com/toggletown/sdk-python.git
 ```python
 from toggletown import ToggleTownClient
 
-client = ToggleTownClient("tt_live_your_api_key")
+client = ToggleTownClient("your_environment_api_key")
 client.initialize()
 
 enabled = client.get_boolean_flag("new-feature", False, {
@@ -39,7 +39,7 @@ config = client.get_json_flag("config", {"enabled": False}, context)
 ## Context Manager
 
 ```python
-with ToggleTownClient("tt_live_xxx") as client:
+with ToggleTownClient("prod_xxx") as client:
     enabled = client.get_boolean_flag("feature", False, {"user_id": "123"})
 ```
 
@@ -47,7 +47,7 @@ with ToggleTownClient("tt_live_xxx") as client:
 
 ```python
 client = ToggleTownClient(
-    "tt_live_xxx",
+    "prod_xxx",
     on_stale=lambda last, age: print(f"Flags stale! age: {age}s"),
 )
 

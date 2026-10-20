@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toggletown"
-version = "0.1.0"
+version = "0.2.0"
 description = "ToggleTown Python SDK for feature flags"
 readme = "README.md"
 license = {text = "MIT"}
